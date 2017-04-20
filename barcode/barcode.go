@@ -28,6 +28,8 @@ func nextIndex(i int, max int) int {
 	return 0
 }
 
+// QRData returns QR data from a image. An error is returned if image can't be
+// decoded or there is a problem with scanning the image.
 func QRData(img io.Reader) ([]*barcode.Symbol, error) {
 	m, _, err := image.Decode(img)
 	if err != nil {
@@ -45,6 +47,8 @@ func QRData(img io.Reader) ([]*barcode.Symbol, error) {
 	return symbols, nil
 }
 
+// QRScan draws a rectangle around the QR code and the data on the image. An
+// error is returned if the image could not be scanned.
 func QRScan(camImg *cv.IplImage) error {
 	img := barcode.NewImage(camImg.ToImage())
 	scanner := barcode.NewScanner().SetEnabledAll(true)
