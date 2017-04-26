@@ -26,6 +26,8 @@ func (g GoOOR) Free() {
 }
 
 // DetectEllipses finds ellipses in the current image from a video stream.
+// The return slice first four values are the rectangle information which
+// surround the larges Elipses and the last two are the center of the image.
 func (g GoOOR) DetectEllipses(img *opencv.Mat) ([]int, error) {
 	var c *C.int = C.DetectEllipses(g.coor, unsafe.Pointer(img))
 	// Store the int* which is an array
@@ -37,7 +39,7 @@ func (g GoOOR) DetectEllipses(img *opencv.Mat) ([]int, error) {
 	defer C.free(pc) // free memory
 
 	// The length of the array
-	length := 4
+	length := 6
 	// Convert c to pointer to an array, and then slice it.
 	cSlice := (*[1 << 4]C.int)(pc)[:length:length]
 

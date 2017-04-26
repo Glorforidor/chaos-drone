@@ -46,7 +46,6 @@ int* CPPOOR::DetectEllipses(CvMat* imgData) {
     rectangle(orig_src, bounding_rect, Scalar(255,0,0), 5, 8, 0);
 
     // calculate center of rectangle
-    Point rect_center = (bounding_rect.tl() + bounding_rect.br())*0.5;
     Point orig_src_center = Point(orig_src.size().width/2, orig_src.size().height/2);
 
     // debug purpose
@@ -54,10 +53,12 @@ int* CPPOOR::DetectEllipses(CvMat* imgData) {
 
     // create array of size int. Mayby a overkill since we only use 4 indecies.
     int* p = (int *)malloc(sizeof(int));
-    p[0] = rect_center.x;
-    p[1] = rect_center.y;
-    p[2] = orig_src_center.x;
-    p[3] = orig_src_center.y;
+    p[0] = bounding_rect.x;
+    p[1] = bounding_rect.y;
+    p[2] = bounding_rect.width;
+    p[3] = bounding_rect.height;
+    p[4] = orig_src_center.x;
+    p[5] = orig_src_center.y;
     
     return p;
 }

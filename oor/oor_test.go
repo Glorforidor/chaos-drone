@@ -19,28 +19,28 @@ func TestDetectEllipses(t *testing.T) {
 		},
 		{
 			opencv.LoadImageM("test1.jpg", 1),
-			4,
-			[]int{1122, 1824, 1560, 2080},
+			6,
+			[]int{700, 1412, 843, 823, 1560, 2080},
 		},
 		{
 			opencv.LoadImageM("test2.jpg", 1),
-			4,
-			[]int{1060, 1710, 1560, 2080},
+			6,
+			[]int{383, 1044, 1353, 1331, 1560, 2080},
 		},
 		{
 			opencv.LoadImageM("test3.jpg", 1),
-			4,
-			[]int{1550, 1766, 1560, 2080},
+			6,
+			[]int{1137, 1277, 825, 977, 1560, 2080},
 		},
 		{
 			opencv.LoadImageM("test4.jpg", 1),
-			4,
-			[]int{1674, 1900, 1560, 2080},
+			6,
+			[]int{1096, 1322, 1156, 1157, 1560, 2080},
 		},
 		{
 			opencv.LoadImageM("test5.jpg", 1),
-			4,
-			[]int{1074, 2156, 1560, 2080},
+			6,
+			[]int{799, 1871, 549, 570, 1560, 2080},
 		},
 	}
 
@@ -57,5 +57,6 @@ func TestDetectEllipses(t *testing.T) {
 				t.Errorf("Value mismatch: got: %v, want: %v", v, test.want[i])
 			}
 		}
+		t.Logf("got: %v", got)
 	}
 }
