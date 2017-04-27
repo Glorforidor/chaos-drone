@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"testing"
 )
 
@@ -29,11 +30,11 @@ func TestCenter(t *testing.T) {
 func TestRatio(t *testing.T) {
 	tests := []struct {
 		x, y int
-		want float32
+		want float64
 	}{
 		{1, 2, 0.5},
 		{2, 1, 2},
-		{1920, 1080, 1.7777777777},
+		{1920, 1080, 1.7777777777777777},
 		{1, 0, 0.0},
 	}
 
@@ -47,12 +48,14 @@ func TestRatio(t *testing.T) {
 
 func TestDirection(t *testing.T) {
 	tests := []struct {
-		ratio         float32
+		ratio         float64
 		wantDirection int
-		wantBadness   float32
+		wantBadness   float64
 	}{
-		{1920.0 / 1080.0, VIRTICAL, 0.777777777},
-		{1080.0 / 1920.0, HORIZONTAL, 0.4375},
+		{1920.0 / 1080.0, VIRTICAL, math.Abs(math.Log10(1920.0 / 1080.0))},
+		{1080.0 / 1920.0, HORIZONTAL, math.Abs(math.Log10(1080.0 / 1920.0))},
+		{1.0 / 1920.0, HORIZONTAL, 1},
+		{1920.0 / 1.0, VIRTICAL, 1},
 		{1920.0 / 1840.0, STAY, 0.0},
 		{1920.0 / 2000.0, STAY, 0.0},
 	}
@@ -61,11 +64,31 @@ func TestDirection(t *testing.T) {
 		t.Run(fmt.Sprintf("test:%v", i), func(t *testing.T) {
 			d, b := Direction(test.ratio)
 			if d != test.wantDirection {
-				t.Fatalf("Direciton failed: got: %v, want: %v", d, test.wantDirection)
+				t.Fatalf("Direction failed: got: %v, want: %v", d, test.wantDirection)
 			}
 			if b != test.wantBadness {
 				t.Errorf("Badness failed: got: %v, want: %v", b, test.wantBadness)
 			}
 		})
+	}
+}
+
+func TestPlacement(t *testing.T) {
+	tests := []struct {
+		x, y, rx, ry int
+		want         int
+	}{
+		{1, 1, 2, 2, WEST},
+		{2, 1, 2, 2, NORTH},
+		{2, 2, 2, 2, ON_TARGET},
+		{2, 2, 1, 2, EAST},
+		{2, 2, 2, 1, SOUTH},
+	}
+
+	for _, test := range tests {
+		got := Placement(test.x, test.y, test.rx, test.ry)
+		if got != test.want {
+			t.Errorf("Wrong Placement: got: %v, want: %v", got, test.want)
+		}
 	}
 }
