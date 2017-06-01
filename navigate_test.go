@@ -52,12 +52,12 @@ func TestDirection(t *testing.T) {
 		wantDirection int
 		wantBadness   float64
 	}{
-		{1920.0 / 1080.0, VIRTICAL, math.Abs(math.Log10(1920.0 / 1080.0))},
-		{1080.0 / 1920.0, HORIZONTAL, math.Abs(math.Log10(1080.0 / 1920.0))},
-		{1.0 / 1920.0, HORIZONTAL, 1},
-		{1920.0 / 1.0, VIRTICAL, 1},
-		{1920.0 / 1840.0, STAY, 0.0},
-		{1920.0 / 2000.0, STAY, 0.0},
+		{1920.0 / 1080.0, Virtical, math.Abs(math.Log10(1920.0 / 1080.0))},
+		{1080.0 / 1920.0, Horizontal, math.Abs(math.Log10(1080.0 / 1920.0))},
+		{1.0 / 1920.0, Horizontal, 1},
+		{1920.0 / 1.0, Virtical, 1},
+		{1920.0 / 1840.0, Stay, 0.0},
+		{1920.0 / 2000.0, Stay, 0.0},
 	}
 
 	for i, test := range tests {
@@ -78,11 +78,11 @@ func TestPlacement(t *testing.T) {
 		x, y, rx, ry int
 		want         int
 	}{
-		{1, 1, 2, 2, WEST},
-		{2, 1, 2, 2, NORTH},
-		{2, 2, 2, 2, ON_TARGET},
-		{2, 2, 1, 2, EAST},
-		{2, 2, 2, 1, SOUTH},
+		{1, 1, 2, 2, Left},
+		{2, 1, 2, 2, Up},
+		{2, 2, 2, 2, OnTarget},
+		{2, 2, 1, 2, Right},
+		{2, 2, 2, 1, Down},
 	}
 
 	for _, test := range tests {

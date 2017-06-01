@@ -6,22 +6,31 @@ import (
 )
 
 const (
-	VIRTICAL = iota
-	HORIZONTAL
-	STAY
+	// Virtical movement.
+	Virtical = iota
+	// Horizontal movement.
+	Horizontal
+	// Stay means stay!
+	Stay
 )
 
 const (
-	NORTH = iota
-	WEST
-	SOUTH
-	EAST
-	ON_TARGET
+	// Up movement.
+	Up = iota
+	// Left movement.
+	Left
+	// Down movement.
+	Down
+	// Right movement.
+	Right
+	// OnTarget means On Target!
+	OnTarget
 )
 
-// ErrDivByZero as the name imply an divide by zero error.
+// ErrDivByZero as the name imply a divide by zero error.
 var ErrDivByZero = errors.New("divide by zero")
 
+// Point contains a X and Y coordinate.
 type Point struct {
 	X, Y int
 }
@@ -48,7 +57,6 @@ func Ratio(x, y int) (float64, error) {
 	if y <= 0 {
 		return 0.0, ErrDivByZero
 	}
-
 	return float64(x) / float64(y), nil
 }
 
@@ -56,36 +64,34 @@ func Ratio(x, y int) (float64, error) {
 // object.
 func Direction(ratio float64) (direction int, badness float64) {
 	move := 1 - ratio
-	direction = STAY
+	direction = Stay
 	badness = math.Abs(math.Log10(ratio))
 	if 1.0 < badness {
 		badness = 1.0
 	}
-	if -0.05 < move && move < 0.05 {
-		badness = 0.0
-	} else if move < -0.05 {
-		direction = VIRTICAL
+	if move < -0.05 {
+		direction = Virtical
+	} else if move > 0.05 {
+		direction = Horizontal
 	} else {
-		direction = HORIZONTAL
+		badness = 0.0
 	}
-
 	return direction, badness
 }
 
 // Placement calculates the position of the drone relative to the center of an
 // ring.
 func Placement(x, y, rx, ry int) int {
-	placement := ON_TARGET
+	placement := OnTarget
 	switch {
 	case x < rx:
-		placement = WEST
+		placement = Left
 	case x > rx:
-		placement = EAST
+		placement = Right
 	case y < ry:
-		placement = NORTH
+		placement = Up
 	case y > ry:
-		placement = SOUTH
+		placement = Down
 	}
-
 	return placement
 }
