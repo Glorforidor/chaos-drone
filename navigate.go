@@ -6,8 +6,8 @@ import (
 )
 
 const (
-	// Virtical movement.
-	Virtical = iota
+	// Vertical movement.
+	Vertical = iota
 	// Horizontal movement.
 	Horizontal
 	// Stay means stay!
@@ -70,7 +70,7 @@ func Direction(ratio float64) (direction int, badness float64) {
 		badness = 1.0
 	}
 	if move < -0.05 {
-		direction = Virtical
+		direction = Vertical
 	} else if move > 0.05 {
 		direction = Horizontal
 	} else {
