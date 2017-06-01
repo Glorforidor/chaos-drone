@@ -52,10 +52,10 @@ func TestDirection(t *testing.T) {
 		wantDirection int
 		wantBadness   float64
 	}{
-		{1920.0 / 1080.0, Virtical, math.Abs(math.Log10(1920.0 / 1080.0))},
+		{1920.0 / 1080.0, Vertical, math.Abs(math.Log10(1920.0 / 1080.0))},
 		{1080.0 / 1920.0, Horizontal, math.Abs(math.Log10(1080.0 / 1920.0))},
 		{1.0 / 1920.0, Horizontal, 1},
-		{1920.0 / 1.0, Virtical, 1},
+		{1920.0 / 1.0, Vertical, 1},
 		{1920.0 / 1840.0, Stay, 0.0},
 		{1920.0 / 2000.0, Stay, 0.0},
 	}
