@@ -20,7 +20,7 @@ int* CPPOOR::DetectEllipses(CvMat* imgData) {
     Mat red_hue_image;
     addWeighted(lower_red_hue_range, 1.0, upper_red_hue_range, 1.0, 0.0, red_hue_image);
 
-    GaussianBlur(red_hue_image, red_hue_image, Size(7,7), 3, 3);
+    GaussianBlur(red_hue_image, red_hue_image, Size(7,7), 0, 0);
 
     // imwrite("gauss.png", red_hue_image);
 
