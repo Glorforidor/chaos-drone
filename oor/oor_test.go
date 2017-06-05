@@ -1,6 +1,8 @@
 package oor
 
 import (
+	"io/ioutil"
+	"math"
 	"testing"
 
 	"github.com/lazywei/go-opencv/opencv"
@@ -59,4 +61,35 @@ func TestDetectEllipses(t *testing.T) {
 		}
 		t.Logf("got: %v", got)
 	}
+}
+
+func Test(t *testing.T) {
+	o := New()
+	defer o.Free()
+	dirPics := "drone_pics/"
+	files, _ := ioutil.ReadDir(dirPics)
+	image := opencv.LoadImageM(dirPics+files[2].Name(), opencv.CV_LOAD_IMAGE_COLOR)
+	i, err := o.DetectEllipses(image)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(i)
+	t.Log(Center(i[0], i[1], i[2], i[3]))
+}
+func Center(x, y, width, height int) Point {
+	x = round(float64((x + x + width)) * 0.5)
+	y = round(float64((y + y + height)) * 0.5)
+	return Point{x, y}
+}
+
+// Point contains a X and Y coordinate.
+type Point struct {
+	X, Y int
+}
+
+func round(x float64) int {
+	if x < 0 {
+		return int(math.Ceil(x - 0.5))
+	}
+	return int(math.Floor(x + 0.5))
 }
