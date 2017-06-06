@@ -52,33 +52,36 @@ func QRData(img io.Reader) ([]*barcode.Symbol, error) {
 // GetEllipseOverQR returns an XY coordinate located over the given QR code,
 // if any. If the QR code is not found, nil is returned instead.
 func GetEllipseOverQR(camImg *cv.IplImage, qrText string) ([]int, error) {
+
 	img := barcode.NewImage(camImg.ToImage())
 	scanner := barcode.NewScanner().SetEnabledAll(true)
 
 	ellipseYOffset := 3.4 // how many QR code heights do we need to offset our center point to get to the ellipse ring?
 
+	fmt.Printf("Img: %v\n", img)
 	symbols, err := scanner.ScanImage(img)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not scan barcode in image")
 	}
 	for _, s := range symbols {
-		if s.Data == qrText {
-			var mx, ly, uy int
-			for i := 0; i < 4; i++ {
-				x := s.Boundary[i].X
-				y := s.Boundary[i].Y
-				mx += x
-				if i == 0 || ly > y {
-					ly = y
-				}
-				if i == 0 || uy < y {
-					uy = y
-				}
+		fmt.Printf("Found QR code: %s\n", s.Data)
+		//if s.Data == qrText {
+		var mx, ly, uy int
+		for i := 0; i < 4; i++ {
+			x := s.Boundary[i].X
+			y := s.Boundary[i].Y
+			mx += x
+			if i == 0 || ly > y {
+				ly = y
 			}
-			var upLen = float64(uy-ly) * float64(ellipseYOffset)
-			var tilt = math.Atan2(float64(s.Boundary[0].X)-float64(mx)*0.25, float64(s.Boundary[0].Y)-float64(ly)+float64(uy-ly)*0.5) + math.Pi*(135.0/180.0)
-			return []int{int(float64(mx)*0.25 - math.Cos(tilt)*upLen), int(float64(ly) + float64(uy-ly)*0.5 - math.Sin(tilt)*upLen)}, nil
+			if i == 0 || uy < y {
+				uy = y
+			}
 		}
+		var upLen = float64(uy-ly) * float64(ellipseYOffset)
+		var tilt = math.Atan2(float64(s.Boundary[0].X)-float64(mx)*0.25, float64(s.Boundary[0].Y)-float64(ly)+float64(uy-ly)*0.5) + math.Pi*(135.0/180.0)
+		return []int{int(float64(mx)*0.25 - math.Cos(tilt)*upLen), int(float64(ly) + float64(uy-ly)*0.5 - math.Sin(tilt)*upLen)}, nil
+		//}
 	}
 
 	return nil, nil
