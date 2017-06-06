@@ -33,6 +33,9 @@ const (
 // ErrDivByZero as the name imply a divide by zero error.
 var ErrDivByZero = errors.New("divide by zero")
 
+// IsLocked determines if the drone will react to commands
+var IsLocked = false
+
 // Point contains a X and Y coordinate.
 type Point struct {
 	X, Y int
@@ -101,9 +104,13 @@ func Placement(x, y, rx, ry int) int {
 
 // FlyThroughRing is a command to make the drone lock on and fly straight for one second.
 func FlyThroughRing(drone *ardrone.Driver) {
-	drone.Forward(0.05)
-	time.Sleep(2200 * time.Millisecond)
-	drone.Hover()
-	time.Sleep(200 * time.Millisecond)
-	drone.Land()
+	if !IsLocked {
+		IsLocked = true
+		drone.Forward(0.05)
+		time.Sleep(2200 * time.Millisecond)
+		drone.Hover()
+		time.Sleep(200 * time.Millisecond)
+		drone.Land()
+		IsLocked = false
+	}
 }
