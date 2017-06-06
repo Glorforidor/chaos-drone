@@ -99,18 +99,18 @@ func main() {
 							ellipseData, err := goOOR.DetectEllipses(i2.GetMat())
 							fmt.Printf("Mat: %v, Err: %v\n", i2.GetMat(), err)
 							if err == nil {
-								var lx, ly, ux, uy int
-								lx = ellipseData[0] // Rectangle left
-								ly = ellipseData[1] // Rectangle top
-								ux = ellipseData[2] // Rectangle right
-								uy = ellipseData[3] // Rectangle bottom
+								var x, y, w, h int
+								x = ellipseData[0] // Rectangle left
+								y = ellipseData[1] // Rectangle top
+								w = ellipseData[2] // Rectangle right
+								h = ellipseData[3] // Rectangle bottom
 								//cx = ellipseData[4] // Image center X
 								//cy = ellipseData[5] // Image center Y
 
 								rect := cv.Rect{}
-								rect.Init(lx, ly, ux-lx, uy-ly)
+								rect.Init(x, y, w, h)
 
-								fmt.Printf("Rectangle: (lx = %d, ly = %d), (ux = %d, ly = %d), w = %d, h = %d\n", lx, ly, ux, uy, ux-lx, uy-uy)
+								fmt.Printf("Rectangle: (x = %d, y = %d), w = %d, h = %d\n", x, y, w, h)
 
 								opencv.DrawRectangles(i2, []*cv.Rect{&rect}, 0, 255, 0, 5)
 
