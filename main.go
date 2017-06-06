@@ -30,6 +30,9 @@ func main() {
 	killThisProgram := false // Turn on to make the drone land
 	onlyCameraFeed := true   // Turn on to prevent flying, so we can collect data.
 
+	const moveSpeed = 0.025
+	const rotateSpeed = 0.025
+
 	if killThisProgram {
 		fmt.Println("KILLTHISPROGRAM IS ACTIVE! SHUTTING DOWN DRONE!")
 	}
@@ -60,7 +63,7 @@ func main() {
 		flyingFunc := func(data interface{}) {
 			if !onlyCameraFeed && !killThisProgram {
 				gobot.After(1*time.Second, func() { drone.Up(0.55) })
-				gobot.After(2*time.Second, func() { /*drone.Hover()*/ navigation.FlyThroughRing(drone) })
+				gobot.After(2*time.Second, func() { /*drone.Hover() navigation.FlyThroughRing(drone)*/ })
 			} else {
 				drone.Land()
 			}
@@ -89,23 +92,82 @@ func main() {
 
 						if i != nil {
 							i2 = i.Clone()
-							qrText, qrErr := barcode.QRScan(i2)
-							if qrErr != nil {
-								fmt.Printf("An error occoured with QR scanning: %v\n", qrErr)
+							success, result := Pcall(func(arg1 []interface{}) []interface{} {
+								ellipsePoint, err := barcode.GetEllipseOverQR(i2, "P.00")
+								if err != nil {
+									return []interface{}{ellipsePoint, err.Error()}
+								}
+								return []interface{}{ellipsePoint, nil}
+							}, nil)
+							ellipsePoint := result[0].([]int)
+							err := result[1]
+							//qrText, qrErr := barcode.QRScan(i2)
+							if !success {
+								fmt.Println("Invalid segmentation fault with QR scanning")
+							} else if err != nil {
+								fmt.Printf("An error occoured with QR scanning: %v\n", err)
 							} else {
-								fmt.Printf("Amount of QR codes: %d, Data: %v\n", len(qrText), qrText)
+								//fmt.Printf("Amount of QR codes: %d, Data: %v\n", len(qrText), qrText)
+								cv.Circle(i2, cv.Point{X: ellipsePoint[0], Y: ellipsePoint[1]}, 8, cv.NewScalar(0, 0, 255, 0), 4, 8, 0)
 							}
 
 							ellipseData, err := goOOR.DetectEllipses(i2.GetMat())
 							fmt.Printf("Mat: %v, Err: %v\n", i2.GetMat(), err)
 							if err == nil {
-								var x, y, w, h int
-								x = ellipseData[0] // Rectangle left
-								y = ellipseData[1] // Rectangle top
-								w = ellipseData[2] // Rectangle right
-								h = ellipseData[3] // Rectangle bottom
-								//cx = ellipseData[4] // Image center X
-								//cy = ellipseData[5] // Image center Y
+								var x, y, w, h, cx, cy int
+								x = ellipseData[0]  // Rectangle left
+								y = ellipseData[1]  // Rectangle top
+								w = ellipseData[2]  // Rectangle right
+								h = ellipseData[3]  // Rectangle bottom
+								cx = ellipseData[4] // Image center X
+								cy = ellipseData[5] // Image center Y
+
+								ratio, err := navigation.Ratio(w, h)
+								if err == nil {
+									dir, badness := navigation.Direction(ratio)
+									center := navigation.Center(x, y, w, h)
+									move := navigation.Placement(cx, cy, center.X, center.Y)
+									if badness > 0 {
+										switch dir {
+										case navigation.Horizontal:
+											switch move {
+											case navigation.Left:
+												//drone.CounterClockwise(rotateSpeed)
+												fmt.Println("Flying counter clockwise")
+											case navigation.Right:
+												//drone.Clockwise(rotateSpeed)
+												fmt.Println("Flying clockwise")
+											}
+										case navigation.Vertical:
+											switch move {
+											case navigation.Down:
+												//drone.Down(moveSpeed)
+												fmt.Println("Flying down 1")
+											case navigation.Up:
+												//drone.Up(moveSpeed)
+												fmt.Println("Flying up 1")
+											}
+										}
+									} else {
+										switch move {
+										case navigation.Down:
+											//drone.Down(moveSpeed)
+											fmt.Println("Flying down 2")
+										case navigation.Up:
+											//drone.Up(moveSpeed)
+											fmt.Println("Flying up 2")
+										case navigation.Left:
+											//drone.Left(moveSpeed)
+											fmt.Println("Flying left")
+										case navigation.Right:
+											//drone.Right(moveSpeed)
+											fmt.Println("Flying right")
+										case navigation.OnTarget:
+											// Lock on
+											fmt.Println("HECK YEAH!")
+										}
+									}
+								}
 
 								rect := cv.Rect{}
 								rect.Init(x, y, w, h)
