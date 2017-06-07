@@ -51,11 +51,11 @@ int* CPPOOR::DetectEllipses(CvMat* imgData) {
             bounding_rect = boundingRect(contours[i]);
             bounding_rects.push_back(bounding_rect);
         }
-        if( contours[i].size() > 60 ) {
+        /*if( contours[i].size() > 60 ) {
             minEllipse[i] = fitEllipse( Mat(contours[i]) );
             cout << minEllipse[i].center << endl;
             ellipse(orig_src, minEllipse[i], Scalar(0, 255, 0), 2, 8);
-        }
+        }*/
     }
 
     // paint all red items
@@ -70,8 +70,8 @@ int* CPPOOR::DetectEllipses(CvMat* imgData) {
     Point orig_src_center = Point(orig_src.size().width/2, orig_src.size().height/2);
 
     // debug purpose
-    imwrite("result.png", orig_src);
-    imwrite("red.png", red_hue_image);
+    //imwrite("result.png", orig_src);
+    //imwrite("red.png", red_hue_image);
 
     // create array of size int. Mayby a overkill since we only use 4 indecies.
     int* p = (int *)malloc(sizeof(int));

@@ -10,9 +10,9 @@ import (
 	"gobot.io/x/gobot/platforms/opencv"
 	"gobot.io/x/gobot/platforms/parrot/ardrone"
 
-	"github.com/Glorforidor/Chaos-Drone/barcode"
-	"github.com/Glorforidor/Chaos-Drone/navigation"
-	"github.com/Glorforidor/Chaos-Drone/oor"
+	"github.com/Glorforidor/chaos-drone/barcode"
+	"github.com/Glorforidor/chaos-drone/navigation"
+	"github.com/Glorforidor/chaos-drone/oor"
 )
 
 func main() {
@@ -26,12 +26,14 @@ func main() {
 	drone := ardrone.NewDriver(ardroneAdaptor)
 
 	goOOR := oor.New()
+	defer goOOR.Free()
 
 	killThisProgram := false // Turn on to make the drone land
 	onlyCameraFeed := false  // Turn on to prevent flying, so we can collect data.
 
 	const moveSpeed = 0.025
-	const rotateSpeed = 0.025
+	const rotateSpeed = 0.005
+	const detectDelay = 5
 
 	ringBuffer := [4]cv.Rect{}
 
@@ -68,6 +70,8 @@ func main() {
 		camera.Connection().Finalize()
 	})()
 
+	barcode.Init()
+
 	work := func() {
 		detect := false
 		if killThisProgram {
@@ -87,12 +91,12 @@ func main() {
 		hover := false
 		flyingFunc := func(data interface{}) {
 			if !onlyCameraFeed && !killThisProgram {
-				gobot.After(1*time.Second, func() { drone.Up(0.55) })
-				gobot.After(2*time.Second, func() { /*drone.Hover() navigation.FlyThroughRing(drone)*/ })
+				gobot.After(1*time.Second, func() { drone.Up(0.9) })
+				gobot.After(detectDelay*time.Second, func() { drone.Hover() /*navigation.FlyThroughRing(drone)*/ })
 			} else {
 				drone.Land()
 			}
-			gobot.After(2*time.Second, func() {
+			gobot.After(detectDelay*time.Second, func() {
 				detect = true
 				if !onlyCameraFeed {
 					gobot.Every(300*time.Millisecond, func() {
@@ -101,19 +105,16 @@ func main() {
 								drone.Land()
 								ardroneAdaptor.Finalize()
 								camera.Connection().Finalize()
-							} else {
-								drone.Hover()
 							}
 						}
 					})
 				}
 				var qrPoint cv.Point
 				var qrPointSet bool
-				gobot.Every(750*time.Millisecond, func() {
+				gobot.Every(300*time.Millisecond, func() {
 					qrPointSet = false
 					if image != nil {
-						i2 := image.Clone()
-						ellipsePoint, err := barcode.GetEllipseOverQR(i2, "P.00")
+						ellipsePoint, err := barcode.GetEllipseOverQR(image, "W02.00")
 						//qrText, qrErr := barcode.QRScan(i2)
 						if err != nil {
 							fmt.Printf("An error occoured with QR scanning: %v\n", err)
@@ -121,7 +122,6 @@ func main() {
 							//fmt.Printf("Amount of QR codes: %d, Data: %v\n", len(qrText), qrText)
 							qrPoint = cv.Point{X: ellipsePoint[0], Y: ellipsePoint[1]}
 							qrPointSet = true
-							fmt.Printf("QR point: %d, %d\n", ellipsePoint[0], ellipsePoint[1])
 							//cv.Circle(i2, cv.Point{X: ellipsePoint[0], Y: ellipsePoint[1]}, 8, cv.NewScalar(0, 0, 255, 0), 4, 8, 0)
 						}
 					}
@@ -162,7 +162,7 @@ func main() {
 									dir, badness := navigation.Direction(ratio)
 									center := navigation.Center(x, y, w, h)
 									move := navigation.Placement(cx, cy, center.X, center.Y)
-									if w > 60 && h > 100 && w*h < 160*160 {
+									/*if w > 60 && h > 100 && w*h < 160*160 {
 										navigation.IsLocked = true
 										drone.Up(moveSpeed * 0.5)
 										time.Sleep(140 * time.Millisecond)
@@ -173,44 +173,45 @@ func main() {
 										navigation.IsLocked = false
 									} else {
 										drone.Hover()
-									}
+									}*/
 									if badness > 0 {
 										switch dir {
 										case navigation.Horizontal:
 											switch move {
 											case navigation.Left:
-												//drone.CounterClockwise(rotateSpeed)
+												drone.CounterClockwise(rotateSpeed * badness)
 												fmt.Println("Flying counter clockwise")
 											case navigation.Right:
-												//drone.Clockwise(rotateSpeed)
+												drone.Clockwise(rotateSpeed * badness)
 												fmt.Println("Flying clockwise")
 											}
 										case navigation.Vertical:
 											switch move {
 											case navigation.Down:
-												//drone.Down(moveSpeed)
+												drone.Down(moveSpeed * badness)
 												fmt.Println("Flying down 1")
 											case navigation.Up:
-												//drone.Up(moveSpeed)
+												//drone.Up(moveSpeed * badness)
 												fmt.Println("Flying up 1")
 											}
 										}
 									} else {
 										switch move {
 										case navigation.Down:
-											//drone.Down(moveSpeed)
+											//drone.Down(moveSpeed * badness)
 											fmt.Println("Flying down 2")
 										case navigation.Up:
-											//drone.Up(moveSpeed)
+											//drone.Up(moveSpeed * badness)
 											fmt.Println("Flying up 2")
 										case navigation.Left:
-											//drone.Left(moveSpeed)
+											//drone.Left(moveSpeed * badness)
 											fmt.Println("Flying left")
 										case navigation.Right:
-											//drone.Right(moveSpeed)
+											//drone.Right(moveSpeed * badness)
 											fmt.Println("Flying right")
 										case navigation.OnTarget:
 											// Lock on
+											//drone.Hover()
 											fmt.Println("HECK YEAH!")
 										}
 									}
@@ -222,7 +223,7 @@ func main() {
 
 							appendToRingBuffer(rect)
 
-							fmt.Printf("Rectangle: (x = %d, y = %d), w = %d, h = %d\n", x, y, w, h)
+							//fmt.Printf("Rectangle: (x = %d, y = %d), w = %d, h = %d\n", x, y, w, h)
 
 							opencv.DrawRectangles(i2, []*cv.Rect{&rect}, 0, 255, 0, 5)
 
@@ -287,7 +288,7 @@ func main() {
 					window.ShowImage(i2)
 				})
 				if onlyCameraFeed {
-					gobot.After(60*time.Second, func() {
+					gobot.After(15*time.Second, func() {
 						drone.Land()
 						ardroneAdaptor.Finalize()
 						camera.Connection().Finalize()
