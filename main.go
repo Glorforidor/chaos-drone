@@ -29,7 +29,7 @@ func main() {
 	defer goOOR.Free()
 
 	killThisProgram := false // Turn on to make the drone land
-	onlyCameraFeed := false  // Turn on to prevent flying, so we can collect data.
+	onlyCameraFeed := true   // Turn on to prevent flying, so we can collect data.
 
 	const moveSpeed = 0.025
 	const rotateSpeed = 0.005
@@ -127,7 +127,7 @@ func main() {
 					}
 				})
 
-				gobot.Every(300*time.Millisecond, func() {
+				gobot.Every(200*time.Millisecond, func() {
 					i := image
 
 					var i2 *cv.IplImage
@@ -288,7 +288,7 @@ func main() {
 					window.ShowImage(i2)
 				})
 				if onlyCameraFeed {
-					gobot.After(15*time.Second, func() {
+					gobot.After(50*time.Second, func() {
 						drone.Land()
 						ardroneAdaptor.Finalize()
 						camera.Connection().Finalize()

@@ -49,5 +49,9 @@ func (g GoOOR) DetectEllipses(img *opencv.Mat) ([]int, error) {
 		s = append(s, int(v))
 	}
 
+	if s[0] == 0 && s[1] == 0 && s[2] == 0 && s[3] == 0 {
+		return nil, errors.New("no ellipses detected")
+	}
+
 	return s, nil
 }
