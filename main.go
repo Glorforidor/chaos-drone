@@ -156,64 +156,12 @@ func main() {
 							h = medBounds[3]
 
 							if !navigation.IsLocked {
-
-								ratio, err := navigation.Ratio(w, h)
 								if !onlyCameraFeed && err == nil {
-									dir, badness := navigation.Direction(ratio)
 									center := navigation.Center(x, y, w, h)
 									move := navigation.Placement(cx, cy, center.X, center.Y)
-									/*if w > 60 && h > 100 && w*h < 160*160 {
-										navigation.IsLocked = true
-										drone.Up(moveSpeed * 0.5)
-										time.Sleep(140 * time.Millisecond)
-										drone.Forward(moveSpeed * 0.05)
-										time.Sleep(1000 * time.Millisecond)
-										drone.Hover()
-										time.Sleep(1000 * time.Millisecond)
-										navigation.IsLocked = false
-									} else {
-										drone.Hover()
-									}*/
-									if badness > 0 {
-										switch dir {
-										case navigation.Horizontal:
-											switch move {
-											case navigation.Left:
-												drone.CounterClockwise(rotateSpeed * badness)
-												fmt.Println("Flying counter clockwise")
-											case navigation.Right:
-												drone.Clockwise(rotateSpeed * badness)
-												fmt.Println("Flying clockwise")
-											}
-										case navigation.Vertical:
-											switch move {
-											case navigation.Down:
-												drone.Down(moveSpeed * badness)
-												fmt.Println("Flying down 1")
-											case navigation.Up:
-												//drone.Up(moveSpeed * badness)
-												fmt.Println("Flying up 1")
-											}
-										}
-									} else {
-										switch move {
-										case navigation.Down:
-											//drone.Down(moveSpeed * badness)
-											fmt.Println("Flying down 2")
-										case navigation.Up:
-											//drone.Up(moveSpeed * badness)
-											fmt.Println("Flying up 2")
-										case navigation.Left:
-											//drone.Left(moveSpeed * badness)
-											fmt.Println("Flying left")
-										case navigation.Right:
-											//drone.Right(moveSpeed * badness)
-											fmt.Println("Flying right")
-										case navigation.OnTarget:
-											// Lock on
-											//drone.Hover()
-											fmt.Println("HECK YEAH!")
-										}
+									onTarget := navigation.MovementToRing(drone, move)
+									if onTarget {
+										drone.Land()
 									}
 								}
 							}

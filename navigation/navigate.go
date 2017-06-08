@@ -103,14 +103,41 @@ func Placement(x, y, rx, ry int) int {
 }
 
 // FlyThroughRing is a command to make the drone lock on and fly straight for one second.
-func FlyThroughRing(drone *ardrone.Driver) {
+func FlyThroughRing(drone *ardrone.Driver, size int) {
 	if !IsLocked {
 		IsLocked = true
 		drone.Forward(0.05)
-		time.Sleep(2200 * time.Millisecond)
+		i := 10 - math.Log10(float64(size))
+		time.Sleep(time.Duration(i) * time.Second)
 		drone.Hover()
 		time.Sleep(200 * time.Millisecond)
 		drone.Land()
 		IsLocked = false
 	}
+}
+
+func MovementToRing(drone *ardrone.Driver, placement int) bool {
+	if !IsLocked {
+		IsLocked = true
+		switch placement {
+		case Up:
+			drone.Down(0.025)
+			time.Sleep(1 * time.Second)
+		case Down:
+			drone.Up(0.025)
+			time.Sleep(1 * time.Second)
+		case Left:
+			drone.Right(0.025)
+			time.Sleep(1 * time.Second)
+		case Right:
+			drone.Left(0.025)
+			time.Sleep(1 * time.Second)
+		case OnTarget:
+			IsLocked = false
+			return true
+		}
+	}
+	IsLocked = false
+	drone.Hover()
+	return false
 }
