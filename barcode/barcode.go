@@ -95,8 +95,14 @@ func GetEllipseOverQR(camImg *cv.IplImage, qrText string) ([]int, error) {
 				}
 			}
 			var upLen = float64(uy-ly) * float64(ellipseYOffset)
-			var tilt = math.Atan2(float64(s.Boundary[0].X)-float64(mx)*0.25, float64(s.Boundary[0].Y)-float64(ly)+float64(uy-ly)*0.5) + math.Pi*(135.0/180.0)
-			return []int{int(float64(mx)*0.25 - math.Cos(tilt)*upLen), int(float64(ly) + float64(uy-ly)*0.5 - math.Sin(tilt)*upLen)}, nil
+			var tilt = math.Atan2(
+				float64(s.Boundary[0].X)-float64(mx)*0.25,
+				float64(s.Boundary[0].Y)-float64(ly)+float64(uy-ly)*0.5,
+			) + math.Pi*(135.0/180.0)
+			return []int{
+				int(float64(mx)*0.25 - math.Cos(tilt)*upLen),
+				int(float64(ly) + float64(uy-ly)*0.5 - math.Sin(tilt)*upLen),
+			}, nil
 		}
 	}
 
