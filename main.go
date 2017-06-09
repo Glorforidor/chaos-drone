@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"runtime"
 	"time"
 
@@ -15,8 +16,20 @@ import (
 	"github.com/Glorforidor/chaos-drone/oor"
 )
 
+const (
+	moveSpeed   = 0.025
+	rotateSpeed = 0.005
+	detectDelay = 3
+)
+
+var (
+	barcodeIndex = 0
+	barcodes     = []string{"P.04"}
+)
+
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
+	barcode.Init()
 
 	//_, currentfile, _, _ := runtime.Caller(0)
 	//cascade := path.Join(path.Dir(currentfile), "haarcascade_frontalface_alt.xml")
@@ -28,15 +41,17 @@ func main() {
 	goOOR := oor.New()
 	defer goOOR.Free()
 
+	// killThisProgram AwesomeAs' killing machine!!!... will stop the program ;)
 	killThisProgram := false // Turn on to make the drone land
-	onlyCameraFeed := true   // Turn on to prevent flying, so we can collect data.
+	// onlyCameraFeed does what the name says.
+	onlyCameraFeed := false // Turn on to prevent flying, so we can collect data.
 
-	const moveSpeed = 0.025
-	const rotateSpeed = 0.005
-	const detectDelay = 5
-
+	// ringBuffer holds four images of the ring. Can be used to lock on the best
+	// possible image.
 	ringBuffer := [4]cv.Rect{}
 
+	// appendToRingBuffer appends a ring image to the ringBuffer. Every append
+	// shuffle the array left removing the first.
 	appendToRingBuffer := func(bounds cv.Rect) {
 		for i := 1; i < 4; i++ {
 			ringBuffer[i-1] = ringBuffer[i]
@@ -44,196 +59,174 @@ func main() {
 		ringBuffer[3] = bounds
 	}
 
-	getMedianOfRingBuffers := func() [4]int {
-		sum := [4]int{}
-		for i := 0; i < 4; i++ {
-			if ringBuffer[i].Width() > sum[2] && ringBuffer[i].Height() > sum[3] {
-				sum[0] = ringBuffer[i].X()
-				sum[1] = ringBuffer[i].Y()
-				sum[2] = ringBuffer[i].Width()
-				sum[3] = ringBuffer[i].Height()
-			}
-		}
-		/*for i := 0; i < 4; i++ {
-			sum[i] = int(float64(sum[i]) / 5.0)
-		}*/
-		return sum
-	}
+	// getMedianOfRingBuffers := func() [4]int {
+	// sum := [4]int{}
+	// for i := 0; i < 4; i++ {
+	// if ringBuffer[i].Width() > sum[2] && ringBuffer[i].Height() > sum[3] {
+	// sum[0] = ringBuffer[i].X()
+	// sum[1] = ringBuffer[i].Y()
+	// sum[2] = ringBuffer[i].Width()
+	// sum[3] = ringBuffer[i].Height()
+	// }
+	// }
+	// [>for i := 0; i < 4; i++ {
+	// sum[i] = int(float64(sum[i]) / 5.0)
+	// }*/
+	// return sum
+	// }
 
 	if killThisProgram {
 		fmt.Println("KILLTHISPROGRAM IS ACTIVE! SHUTTING DOWN DRONE!")
 	}
 
-	defer (func() {
+	// kill everything after main returns.
+	defer func() {
 		drone.Land()
 		ardroneAdaptor.Finalize()
 		camera.Connection().Finalize()
-	})()
-
-	barcode.Init()
+	}()
 
 	work := func() {
-		detect := false
+		// again kill if necessary.
 		if killThisProgram {
 			drone.Land()
 			ardroneAdaptor.Finalize()
 			camera.Connection().Finalize()
+			return
 		} else if !onlyCameraFeed {
 			drone.TakeOff()
 		}
+
+		// image is the drone image which will be used for detecting rings and
+		// barcodes.
 		var image *cv.IplImage
+
+		// detect determines when a image is detected by other functions.
+		detect := false
+
+		// turn on the camera driver.
 		camera.On(opencv.Frame, func(data interface{}) {
+			// Type assert the raw camera data to opencv image format
 			image = data.(*cv.IplImage)
+
+			// If not detected by other functions let it show here. This is just
+			// to give feedback immediately
 			if !detect {
 				window.ShowImage(image)
 			}
 		})
-		hover := false
 		flyingFunc := func(data interface{}) {
-			if !onlyCameraFeed && !killThisProgram {
-				gobot.After(1*time.Second, func() { drone.Up(0.9) })
-				gobot.After(detectDelay*time.Second, func() { drone.Hover() /*navigation.FlyThroughRing(drone)*/ })
-			} else {
-				drone.Land()
-			}
+			// if !onlyCameraFeed && !killThisProgram {
+			// gobot.After(0*time.Second, func() { drone.Up(0.9) })
+			// gobot.After(detectDelay*time.Second, func() { drone.Hover() navigation.FlyThroughRing(drone) })
+			// } else {
+			// drone.Land()
+			// }
 			gobot.After(detectDelay*time.Second, func() {
 				detect = true
+
+				// perhaps kill the program one more time?
 				if !onlyCameraFeed {
 					gobot.Every(300*time.Millisecond, func() {
-						if hover {
-							if killThisProgram {
-								drone.Land()
-								ardroneAdaptor.Finalize()
-								camera.Connection().Finalize()
-							}
+						if killThisProgram {
+							drone.Land()
+							ardroneAdaptor.Finalize()
+							camera.Connection().Finalize()
 						}
 					})
 				}
+
+				// qrPoint holds the x and y coordinates of the position over
+				// the barcode. These coordinates should be the place where the
+				// drone fly through.
 				var qrPoint cv.Point
+				// qrPointSet is to determine if a set has been found.
 				var qrPointSet bool
 				gobot.Every(300*time.Millisecond, func() {
 					qrPointSet = false
 					if image != nil {
-						ellipsePoint, err := barcode.GetEllipseOverQR(image, "W02.00")
+						ellipsePoint, err := barcode.GetEllipseOverQR(image, barcodes[barcodeIndex])
 						//qrText, qrErr := barcode.QRScan(i2)
-						if err != nil {
-							fmt.Printf("An error occoured with QR scanning: %v\n", err)
-						} else if ellipsePoint != nil {
-							//fmt.Printf("Amount of QR codes: %d, Data: %v\n", len(qrText), qrText)
-							qrPoint = cv.Point{X: ellipsePoint[0], Y: ellipsePoint[1]}
-							qrPointSet = true
-							//cv.Circle(i2, cv.Point{X: ellipsePoint[0], Y: ellipsePoint[1]}, 8, cv.NewScalar(0, 0, 255, 0), 4, 8, 0)
+						if ellipsePoint == nil {
+							if err != nil {
+								log.Printf("An error occoured with QR scanning: %v\n", err)
+							}
+							return
 						}
+
+						log.Printf("Ellipse Point: %v\n", ellipsePoint)
+
+						qrPoint = cv.Point{X: ellipsePoint[0], Y: ellipsePoint[1]}
+						qrPointSet = true
 					}
 				})
 
 				gobot.Every(200*time.Millisecond, func() {
-					i := image
-
-					var i2 *cv.IplImage
-
-					if i != nil {
-						i2 = i.Clone()
-
-						if qrPointSet {
-							cv.Circle(i2, qrPoint, 8, cv.NewScalar(0, 0, 255, 0), 4, 8, 0)
-						}
-
-						ellipseData, err := goOOR.DetectEllipses(i2.GetMat())
-						if err == nil {
-							var x, y, w, h, cx, cy int
-							//x = ellipseData[0]  // Rectangle left
-							//y = ellipseData[1]  // Rectangle top
-							//w = ellipseData[2]  // Rectangle right
-							//h = ellipseData[3]  // Rectangle bottom
-							cx = ellipseData[4] // Image center X
-							cy = ellipseData[5] // Image center Y
-
-							medBounds := getMedianOfRingBuffers()
-							x = medBounds[0]
-							y = medBounds[1]
-							w = medBounds[2]
-							h = medBounds[3]
-
-							if !navigation.IsLocked {
-								if !onlyCameraFeed && err == nil {
-									center := navigation.Center(x, y, w, h)
-									move := navigation.Placement(cx, cy, center.X, center.Y)
-									onTarget := navigation.MovementToRing(drone, move)
-									if onTarget {
-										drone.Land()
-									}
-								}
-							}
-
-							rect := cv.Rect{}
-							rect.Init(ellipseData[0], ellipseData[1], ellipseData[2], ellipseData[3])
-
-							appendToRingBuffer(rect)
-
-							//fmt.Printf("Rectangle: (x = %d, y = %d), w = %d, h = %d\n", x, y, w, h)
-
-							opencv.DrawRectangles(i2, []*cv.Rect{&rect}, 0, 255, 0, 5)
-
-							/*opencv.DrawRectangles(
-							i,
-							[]*cv.Rect{cv.Rect(
-								i,
-								lt,
-								br,
-								cv.NewScalar(0, 0, 0, 0),
-								1,
-								1,
-								0)},
-							0, 255, 0, 5)*/
-						}
-
-						/*faces := opencv.DetectFaces(cascade, i)
-						biggest := 0
-						var face *cv.Rect
-						for _, f := range faces {
-							if f.Width() > biggest {
-								biggest = f.Width()
-								face = f
-							}
-						}
-						if face != nil {
-							opencv.DrawRectangles(i, []*cv.Rect{face}, 0, 255, 0, 5)
-							hystX := 0.2
-							hystY := 0.2
-							centerX := float64(image.Width()) * 0.5
-							centerY := float64(image.Height()) * 0.5
-							turnX := -(float64(face.X()) - centerX) / centerX
-							turnY := -(float64(face.Y()) - centerY) / centerY
-							//Find object horizontal
-							if turnX < -hystX {
-								fmt.Println("turning ClockWise:", turnX)
-								//drone.Clockwise(math.Abs((turn + 0.2) * 0.2))
-								drone.Clockwise(0.01)
-							} else if turnX > hystX {
-								fmt.Println("turning CounterClockWise:", turnX)
-								//drone.CounterClockwise(math.Abs((turn - 0.2) * 0.2))
-								drone.CounterClockwise(0.01)
-							} else if turnY > hystY { //Find object vertital
-								fmt.Println("turning Up:", turnY)
-								//drone.Clockwise(math.Abs((turn + 0.2) * 0.2))
-								drone.Up(0.01)
-							} else if turnY < -hystY {
-								fmt.Println("turning Down:", turnY)
-								//drone.CounterClockwise(math.Abs((turn - 0.2) * 0.2))
-								drone.Down(0.01)
-							} else { //if turnX < hystX && turnX > -hystX && turnY < hystY && turnY > -hystY {
-
-								fmt.Println("Forward:")
-								hover = false
-								drone.Forward(0.1)
-								gobot.After(1*time.Second, func() { hover = true })
-							}
-						}*/
-					} else {
-						fmt.Println("Image is nil!")
+					if image == nil {
+						log.Printf("image not captured: %v\n", image)
+						return
 					}
-					window.ShowImage(i2)
+
+					// clone image so we don't work directly on the stream.
+					img := image.Clone()
+
+					if qrPointSet {
+						// draw red circle where the drone should fly through.
+						cv.Circle(img, qrPoint, 8, cv.NewScalar(0, 0, 255, 0), 4, 8, 0)
+					}
+
+					// scan the image for ellipse and get information where it
+					// is.
+					ellipseData, err := goOOR.DetectEllipses(img.GetMat())
+					if err != nil {
+						log.Printf("could not detect ellipse: %v\n", err)
+						return
+					}
+
+					x := ellipseData[0]  // Rectangle left
+					y := ellipseData[1]  // Rectangle top
+					w := ellipseData[2]  // Rectangle right
+					h := ellipseData[3]  // Rectangle bottom
+					cx := ellipseData[4] // Image center X
+					cy := ellipseData[5] // Image center Y
+
+					// medBounds := getMedianOfRingBuffers()
+					// x = medBounds[0]
+					// y = medBounds[1]
+					// w = medBounds[2]
+					// h = medBounds[3]
+
+					center := navigation.Center(x, y, w, h)
+					log.Println("Center of the ring:", center)
+					dp := navigation.Placement(cx, cy, center.X, center.Y)
+					log.Println("Drones placement of the ring:", dp)
+					cp := navigation.Placement(cx, cy, qrPoint.X, qrPoint.Y)
+					log.Println("QR placement of the ring:", cp)
+
+					if !onlyCameraFeed {
+						if onTarget := navigation.Move(drone, dp); onTarget {
+							if onTarget := navigation.Move(drone, cp); onTarget {
+								navigation.FlyThroughRing(drone, 200)
+							}
+						}
+					}
+
+					// construct a rectangle from the ellipse data.
+					rect := cv.NewRect(x, y, w, h)
+
+					appendToRingBuffer(rect)
+
+					//fmt.Printf("Rectangle: (x = %d, y = %d), w = %d, h = %d\n", x, y, w, h)
+
+					// draw the rectangle on the image.
+					opencv.DrawRectangles(img, []*cv.Rect{&rect}, 0, 255, 0, 5)
+
+					// show the image on screen.
+					window.ShowImage(img)
+					// barcodeIndex++
+					// if barcodeIndex > 6 {
+					// drone.Land()
+					// }
 				})
 				if onlyCameraFeed {
 					gobot.After(50*time.Second, func() {
@@ -242,8 +235,7 @@ func main() {
 						camera.Connection().Finalize()
 					})
 				} else {
-					gobot.After(10*time.Second, func() {
-						hover = false
+					gobot.After(20*time.Second, func() {
 						drone.Land()
 						ardroneAdaptor.Finalize()
 						camera.Connection().Finalize()
@@ -255,11 +247,14 @@ func main() {
 		if onlyCameraFeed {
 			flyingFunc(nil)
 		} else {
-			drone.On(ardrone.Flying, flyingFunc)
+			if err := drone.On(ardrone.Flying, flyingFunc); err != nil {
+				log.Printf("the flying failed: %v\n", err)
+				return
+			}
 		}
 	}
 
-	robot := gobot.NewRobot("face",
+	robot := gobot.NewRobot("Ardrone",
 		[]gobot.Connection{ardroneAdaptor},
 		[]gobot.Device{window, camera, drone},
 		work,
@@ -268,15 +263,57 @@ func main() {
 	robot.Start()
 }
 
-//Pcall acts as a protected call, returning wether the call went through successfully, and its return value.
-func Pcall(f func([]interface{}) []interface{}, params []interface{}) (success bool, result []interface{}) {
-	defer func() {
-		if r := recover(); r != nil {
-			success = false
-			result = make([]interface{}, 1)
-			result[0] = r
-			fmt.Printf("An error occoured in Pcall: %v\n", r)
-		}
-	}()
-	return true, f(params)
+/*opencv.DrawRectangles(
+i,
+[]*cv.Rect{cv.Rect(
+	i,
+	lt,
+	br,
+	cv.NewScalar(0, 0, 0, 0),
+	1,
+	1,
+	0)},
+0, 255, 0, 5)*/
+
+/*faces := opencv.DetectFaces(cascade, i)
+biggest := 0
+var face *cv.Rect
+for _, f := range faces {
+	if f.Width() > biggest {
+		biggest = f.Width()
+		face = f
+	}
 }
+if face != nil {
+	opencv.DrawRectangles(i, []*cv.Rect{face}, 0, 255, 0, 5)
+	hystX := 0.2
+	hystY := 0.2
+	centerX := float64(image.Width()) * 0.5
+	centerY := float64(image.Height()) * 0.5
+	turnX := -(float64(face.X()) - centerX) / centerX
+	turnY := -(float64(face.Y()) - centerY) / centerY
+	//Find object horizontal
+	if turnX < -hystX {
+		fmt.Println("turning ClockWise:", turnX)
+		//drone.Clockwise(math.Abs((turn + 0.2) * 0.2))
+		drone.Clockwise(0.01)
+	} else if turnX > hystX {
+		fmt.Println("turning CounterClockWise:", turnX)
+		//drone.CounterClockwise(math.Abs((turn - 0.2) * 0.2))
+		drone.CounterClockwise(0.01)
+	} else if turnY > hystY { //Find object vertital
+		fmt.Println("turning Up:", turnY)
+		//drone.Clockwise(math.Abs((turn + 0.2) * 0.2))
+		drone.Up(0.01)
+	} else if turnY < -hystY {
+		fmt.Println("turning Down:", turnY)
+		//drone.CounterClockwise(math.Abs((turn - 0.2) * 0.2))
+		drone.Down(0.01)
+	} else { //if turnX < hystX && turnX > -hystX && turnY < hystY && turnY > -hystY {
+
+		fmt.Println("Forward:")
+		hover = false
+		drone.Forward(0.1)
+		gobot.After(1*time.Second, func() { hover = true })
+	}
+}*/
