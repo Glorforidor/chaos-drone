@@ -33,8 +33,6 @@ func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	barcode.Init()
 
-	//_, currentfile, _, _ := runtime.Caller(0)
-	//cascade := path.Join(path.Dir(currentfile), "haarcascade_frontalface_alt.xml")
 	window := opencv.NewWindowDriver()
 	camera := opencv.NewCameraDriver("tcp://192.168.1.1:5555")
 	ardroneAdaptor := ardrone.NewAdaptor("192.168.1.1") // ardrone2_117047
@@ -48,13 +46,9 @@ func main() {
 	goOOR := oor.New()
 	defer goOOR.Free()
 
-	// killThisProgram AwesomeAs' killing machine!!!... will stop the program ;)
+	// killThisProgram AwesomeAs' killing machine!!!... will stop the program;)
 	killThisProgram := false // Turn on to make the drone land
-	onlyCameraFeed := false  // Turn on to prevent flying, so we can collect data.
-
-	const moveSpeed = 0.025
-	const rotateSpeed = 0.005
-	const detectDelay = 4
+	onlyCameraFeed := true   // Turn on to prevent flying, so we can collect data.
 
 	//ringBuffer := [4]cv.Rect{}
 
@@ -133,7 +127,7 @@ func main() {
 					for _, err := range errs {
 						fmt.Printf("An error occoured with audio: %v\n", err)
 					}
-					drone.Hover() /*navigation.FlyThroughRing(drone)*/
+					drone.Hover()
 				})
 			} else {
 				drone.Land()
@@ -153,14 +147,12 @@ func main() {
 				// perhaps kill the program one more time?
 				if !onlyCameraFeed {
 					gobot.Every(300*time.Millisecond, func() {
-						//if hover {
 						if killThisProgram {
 							drone.Land()
 							ardroneAdaptor.Finalize()
 							audioDriver.Finalize()
 							camera.Connection().Finalize()
 						}
-						//}
 					})
 				}
 
@@ -171,54 +163,50 @@ func main() {
 				// qrPointSet is to determine if a set has been found.
 				var qrPointSet bool
 				gobot.Every(300*time.Millisecond, func() {
+					if image == nil {
+						log.Printf("image not captured: %v\n", image)
+						return
+					}
+					img := image.Clone()
+					defer img.Release()
 					qrPointSet = false
-					if image != nil {
-						ellipsePoint, err := barcode.GetEllipseOverQR(image, "P.04")
-						//qrText, qrErr := barcode.QRScan(i2)
-						if err != nil {
-							fmt.Printf("An error occoured with QR scanning: %v\n", err)
-						} else if ellipsePoint != nil {
-							fmt.Printf("QR code found, position: %d, %d\n", ellipsePoint[0], ellipsePoint[1])
-							qrPoint = cv.Point{X: ellipsePoint[0], Y: ellipsePoint[1]}
-							navigation.IsLocked = true
-							drone.Up(0.01)
-							time.Sleep(500 * time.Millisecond)
-							drone.Forward(0.05)
-							time.Sleep(2 * time.Second)
-							drone.Hover()
-							navigation.IsLocked = false
-							qrPointSet = true
-							//cv.Circle(i2, cv.Point{X: ellipsePoint[0], Y: ellipsePoint[1]}, 8, cv.NewScalar(0, 0, 255, 0), 4, 8, 0)
-						} else {
-							fmt.Println("No QR codes detected.")
-						}
-
-						log.Printf("Ellipse Point: %v\n", ellipsePoint)
-
+					ellipsePoint, err := barcode.GetEllipseOverQR(img, "P.04")
+					//qrText, qrErr := barcode.QRScan(i2)
+					if err != nil {
+						fmt.Printf("An error occoured with QR scanning: %v\n", err)
+					} else if ellipsePoint != nil {
+						fmt.Printf("QR code found, position: %d, %d\n", ellipsePoint[0], ellipsePoint[1])
 						qrPoint = cv.Point{X: ellipsePoint[0], Y: ellipsePoint[1]}
+						navigation.IsLocked = true
+						// drone.Up(0.01)
+						time.Sleep(500 * time.Millisecond)
+						// drone.Forward(0.05)
+						time.Sleep(2 * time.Second)
+						// drone.Hover()
+						navigation.IsLocked = false
 						qrPointSet = true
+						//cv.Circle(i2, cv.Point{X: ellipsePoint[0], Y: ellipsePoint[1]}, 8, cv.NewScalar(0, 0, 255, 0), 4, 8, 0)
+					} else {
+						fmt.Println("No QR codes detected.")
 					}
 				})
 
-				gobot.Every(300*time.Millisecond, func() {
-					//i := image
+				gobot.Every(200*time.Millisecond, func() {
 					if image == nil {
 						log.Printf("image not captured: %v\n", image)
 						return
 					}
 					// clone image so we don't work directly on the stream.
 					img := image.Clone()
+					defer img.Release()
 
 					if qrPointSet {
 						// draw red circle where the drone should fly through.
-						cv.Circle(img, qrPoint, 8, cv.NewScalar(0, 0, 255, 0), 4, 8, 0)
-					}
-					if qrPointSet {
 						cv.Circle(img, cv.Point{X: 200, Y: 200}, 8, cv.NewScalar(0, 255, 0, 0), 4, 8, 0)
 						cv.Circle(img, qrPoint, 8, cv.NewScalar(0, 0, 255, 0), 4, 8, 0)
 					}
 
-					//appendToRingBuffer(rect)
+					// appendToRingBuffer(rect)
 					// scan the image for ellipse and get information where it
 					// is.
 					ellipseData, err := goOOR.DetectEllipses(img.GetMat())
