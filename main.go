@@ -2,11 +2,14 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"math/rand"
 	"runtime"
 	"time"
 
 	cv "github.com/lazywei/go-opencv/opencv"
 	"gobot.io/x/gobot"
+	"gobot.io/x/gobot/platforms/audio"
 	"gobot.io/x/gobot/platforms/opencv"
 	"gobot.io/x/gobot/platforms/parrot/ardrone"
 
@@ -24,27 +27,32 @@ func main() {
 	camera := opencv.NewCameraDriver("tcp://192.168.1.1:5555")
 	ardroneAdaptor := ardrone.NewAdaptor("192.168.1.1") // ardrone2_117047
 	drone := ardrone.NewDriver(ardroneAdaptor)
+	audioDriver := audio.NewAdaptor()
+	audioControl := make([]audio.Driver, 3)
+	audioControl[0] = *audio.NewDriver(audioDriver, "./navigation/audio1.mp3")
+	audioControl[1] = *audio.NewDriver(audioDriver, "./navigation/audio2.mp3")
+	audioControl[2] = *audio.NewDriver(audioDriver, "./navigation/audio3.mp3")
 
 	goOOR := oor.New()
 	defer goOOR.Free()
 
 	killThisProgram := false // Turn on to make the drone land
-	onlyCameraFeed := true   // Turn on to prevent flying, so we can collect data.
+	onlyCameraFeed := false  // Turn on to prevent flying, so we can collect data.
 
 	const moveSpeed = 0.025
 	const rotateSpeed = 0.005
-	const detectDelay = 5
+	const detectDelay = 4
 
-	ringBuffer := [4]cv.Rect{}
+	//ringBuffer := [4]cv.Rect{}
 
-	appendToRingBuffer := func(bounds cv.Rect) {
+	/*appendToRingBuffer := func(bounds cv.Rect) {
 		for i := 1; i < 4; i++ {
 			ringBuffer[i-1] = ringBuffer[i]
 		}
 		ringBuffer[3] = bounds
-	}
+	}*/
 
-	getMedianOfRingBuffers := func() [4]int {
+	/*getMedianOfRingBuffers := func() [4]int {
 		sum := [4]int{}
 		for i := 0; i < 4; i++ {
 			if ringBuffer[i].Width() > sum[2] && ringBuffer[i].Height() > sum[3] {
@@ -54,11 +62,11 @@ func main() {
 				sum[3] = ringBuffer[i].Height()
 			}
 		}
-		/*for i := 0; i < 4; i++ {
+		/ *for i := 0; i < 4; i++ {
 			sum[i] = int(float64(sum[i]) / 5.0)
-		}*/
+		}* /
 		return sum
-	}
+	}*/
 
 	if killThisProgram {
 		fmt.Println("KILLTHISPROGRAM IS ACTIVE! SHUTTING DOWN DRONE!")
@@ -67,6 +75,7 @@ func main() {
 	defer (func() {
 		drone.Land()
 		ardroneAdaptor.Finalize()
+		audioDriver.Finalize()
 		camera.Connection().Finalize()
 	})()
 
@@ -77,6 +86,7 @@ func main() {
 		if killThisProgram {
 			drone.Land()
 			ardroneAdaptor.Finalize()
+			audioDriver.Finalize()
 			camera.Connection().Finalize()
 		} else if !onlyCameraFeed {
 			drone.TakeOff()
@@ -92,11 +102,26 @@ func main() {
 		flyingFunc := func(data interface{}) {
 			if !onlyCameraFeed && !killThisProgram {
 				gobot.After(1*time.Second, func() { drone.Up(0.9) })
-				gobot.After(detectDelay*time.Second, func() { drone.Hover() /*navigation.FlyThroughRing(drone)*/ })
+				gobot.After(detectDelay*time.Second, func() {
+					errs := audioControl[rand.Intn(3)].Play()
+					for _, err := range errs {
+						fmt.Printf("An error occoured with audio: %v\n", err)
+					}
+					drone.Hover() /*navigation.FlyThroughRing(drone)*/
+				})
 			} else {
 				drone.Land()
 			}
+			if onlyCameraFeed {
+				gobot.After(detectDelay*time.Second, func() {
+					errs := audioControl[rand.Intn(3)].Play()
+					for _, err := range errs {
+						fmt.Printf("An error occoured with audio: %v\n", err)
+					}
+				})
+			}
 			gobot.After(detectDelay*time.Second, func() {
+				log.Println("Detect enabled.")
 				detect = true
 				if !onlyCameraFeed {
 					gobot.Every(300*time.Millisecond, func() {
@@ -104,6 +129,7 @@ func main() {
 							if killThisProgram {
 								drone.Land()
 								ardroneAdaptor.Finalize()
+								audioDriver.Finalize()
 								camera.Connection().Finalize()
 							}
 						}
@@ -114,20 +140,29 @@ func main() {
 				gobot.Every(300*time.Millisecond, func() {
 					qrPointSet = false
 					if image != nil {
-						ellipsePoint, err := barcode.GetEllipseOverQR(image, "W02.00")
+						ellipsePoint, err := barcode.GetEllipseOverQR(image, "P.04")
 						//qrText, qrErr := barcode.QRScan(i2)
 						if err != nil {
 							fmt.Printf("An error occoured with QR scanning: %v\n", err)
 						} else if ellipsePoint != nil {
-							//fmt.Printf("Amount of QR codes: %d, Data: %v\n", len(qrText), qrText)
+							fmt.Printf("QR code found, position: %d, %d\n", ellipsePoint[0], ellipsePoint[1])
 							qrPoint = cv.Point{X: ellipsePoint[0], Y: ellipsePoint[1]}
+							navigation.IsLocked = true
+							drone.Up(0.01)
+							time.Sleep(500 * time.Millisecond)
+							drone.Forward(0.05)
+							time.Sleep(2 * time.Second)
+							drone.Hover()
+							navigation.IsLocked = false
 							qrPointSet = true
 							//cv.Circle(i2, cv.Point{X: ellipsePoint[0], Y: ellipsePoint[1]}, 8, cv.NewScalar(0, 0, 255, 0), 4, 8, 0)
+						} else {
+							fmt.Println("No QR codes detected.")
 						}
 					}
 				})
 
-				gobot.Every(200*time.Millisecond, func() {
+				gobot.Every(300*time.Millisecond, func() {
 					i := image
 
 					var i2 *cv.IplImage
@@ -136,12 +171,13 @@ func main() {
 						i2 = i.Clone()
 
 						if qrPointSet {
+							cv.Circle(i2, cv.Point{X: 200, Y: 200}, 8, cv.NewScalar(0, 255, 0, 0), 4, 8, 0)
 							cv.Circle(i2, qrPoint, 8, cv.NewScalar(0, 0, 255, 0), 4, 8, 0)
 						}
 
 						ellipseData, err := goOOR.DetectEllipses(i2.GetMat())
 						if err == nil {
-							var x, y, w, h, cx, cy int
+							/*var x, y, w, h, cx, cy int
 							//x = ellipseData[0]  // Rectangle left
 							//y = ellipseData[1]  // Rectangle top
 							//w = ellipseData[2]  // Rectangle right
@@ -162,66 +198,71 @@ func main() {
 									dir, badness := navigation.Direction(ratio)
 									center := navigation.Center(x, y, w, h)
 									move := navigation.Placement(cx, cy, center.X, center.Y)
-									/*if w > 60 && h > 100 && w*h < 160*160 {
-										navigation.IsLocked = true
-										drone.Up(moveSpeed * 0.5)
-										time.Sleep(140 * time.Millisecond)
-										drone.Forward(moveSpeed * 0.05)
-										time.Sleep(1000 * time.Millisecond)
+									if move == navigation.OnTarget {
+										log.Println("On target, fly forward.")
 										drone.Hover()
-										time.Sleep(1000 * time.Millisecond)
-										navigation.IsLocked = false
 									} else {
-										drone.Hover()
-									}*/
-									if badness > 0 {
-										switch dir {
-										case navigation.Horizontal:
-											switch move {
-											case navigation.Left:
-												drone.CounterClockwise(rotateSpeed * badness)
-												fmt.Println("Flying counter clockwise")
-											case navigation.Right:
-												drone.Clockwise(rotateSpeed * badness)
-												fmt.Println("Flying clockwise")
+										/ *if w > 60 && h > 100 && w*h < 160*160 {
+											navigation.IsLocked = true
+											drone.Up(moveSpeed * 0.5)
+											time.Sleep(140 * time.Millisecond)
+											drone.Forward(moveSpeed * 0.05)
+											time.Sleep(1000 * time.Millisecond)
+											drone.Hover()
+											time.Sleep(1000 * time.Millisecond)
+											navigation.IsLocked = false
+										} else {
+											drone.Hover()
+										}* /
+										if badness > 0 {
+											switch dir {
+											case navigation.Horizontal:
+												switch move {
+												case navigation.Left:
+													drone.Clockwise(rotateSpeed * badness * 0.1)
+													fmt.Println("Flying clockwise")
+												case navigation.Right:
+													drone.CounterClockwise(rotateSpeed * badness * 0.1)
+													fmt.Println("Flying counter clockwise")
+												}
+											case navigation.Vertical:
+												switch move {
+												case navigation.Down:
+													drone.Down(moveSpeed * badness)
+													fmt.Println("Flying down 1")
+												case navigation.Up:
+													//drone.Up(moveSpeed * badness)
+													fmt.Println("Flying up 1")
+												}
 											}
-										case navigation.Vertical:
+										} else {
 											switch move {
 											case navigation.Down:
-												drone.Down(moveSpeed * badness)
-												fmt.Println("Flying down 1")
+												//drone.Down(moveSpeed * badness)
+												fmt.Println("Flying down 2")
 											case navigation.Up:
 												//drone.Up(moveSpeed * badness)
-												fmt.Println("Flying up 1")
+												fmt.Println("Flying up 2")
+											case navigation.Left:
+												//drone.Left(moveSpeed * badness)
+												fmt.Println("Flying left")
+											case navigation.Right:
+												//drone.Right(moveSpeed * badness)
+												fmt.Println("Flying right")
+											case navigation.OnTarget:
+												// Lock on
+												drone.Hover()
+												fmt.Println("HECK YEAH!")
 											}
-										}
-									} else {
-										switch move {
-										case navigation.Down:
-											//drone.Down(moveSpeed * badness)
-											fmt.Println("Flying down 2")
-										case navigation.Up:
-											//drone.Up(moveSpeed * badness)
-											fmt.Println("Flying up 2")
-										case navigation.Left:
-											//drone.Left(moveSpeed * badness)
-											fmt.Println("Flying left")
-										case navigation.Right:
-											//drone.Right(moveSpeed * badness)
-											fmt.Println("Flying right")
-										case navigation.OnTarget:
-											// Lock on
-											//drone.Hover()
-											fmt.Println("HECK YEAH!")
 										}
 									}
 								}
-							}
+							}*/
 
 							rect := cv.Rect{}
 							rect.Init(ellipseData[0], ellipseData[1], ellipseData[2], ellipseData[3])
 
-							appendToRingBuffer(rect)
+							//appendToRingBuffer(rect)
 
 							//fmt.Printf("Rectangle: (x = %d, y = %d), w = %d, h = %d\n", x, y, w, h)
 
@@ -291,6 +332,7 @@ func main() {
 					gobot.After(50*time.Second, func() {
 						drone.Land()
 						ardroneAdaptor.Finalize()
+						audioDriver.Finalize()
 						camera.Connection().Finalize()
 					})
 				} else {
@@ -298,6 +340,7 @@ func main() {
 						hover = false
 						drone.Land()
 						ardroneAdaptor.Finalize()
+						audioDriver.Finalize()
 						camera.Connection().Finalize()
 					})
 				}
@@ -312,8 +355,8 @@ func main() {
 	}
 
 	robot := gobot.NewRobot("face",
-		[]gobot.Connection{ardroneAdaptor},
-		[]gobot.Device{window, camera, drone},
+		[]gobot.Connection{ardroneAdaptor, audioDriver},
+		[]gobot.Device{window, camera, drone, &audioControl[0], &audioControl[1], &audioControl[2]},
 		work,
 	)
 
