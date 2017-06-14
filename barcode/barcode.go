@@ -50,14 +50,15 @@ func QRData(img io.Reader) ([]*barcode.Symbol, error) {
 }
 
 var scanner *barcode.ImageScanner
-var ellipseYOffset float64 = 3.4 // how many QR code heights do we need to offset our center point to get to the ellipse ring?
+
+const ellipseYOffset = 3.8 // how many QR code heights do we need to offset our center point to get to the ellipse ring?
 
 // Init initalizes the barcode resources
 func Init() {
 	scanner = barcode.NewScanner().SetEnabledAll(true)
 }
 
-// QRData returns QR data from a image. An error is returned if image can't be
+// QRRawData returns QR data from a image. An error is returned if image can't be
 // decoded or there is a problem with scanning the image.
 func QRRawData(m image.Image) ([]*barcode.Symbol, error) {
 	i := barcode.NewImage(m)
@@ -72,7 +73,7 @@ func QRRawData(m image.Image) ([]*barcode.Symbol, error) {
 
 // GetEllipseOverQR returns an XY coordinate located over the given QR code,
 // if any. If the QR code is not found, nil is returned instead.
-func GetEllipseOverQR(camImg *cv.IplImage, qrText string) ([]int, error) {
+func GetEllipseOverQR(camImg *cv.IplImage, qrText string) ([]cv.Point, error) {
 	camImg.ToImage()
 	// We need to make the ToImage() call twice, due to shenenigans
 	symbols, err := QRRawData(camImg.ToImage())
@@ -99,9 +100,9 @@ func GetEllipseOverQR(camImg *cv.IplImage, qrText string) ([]int, error) {
 				float64(s.Boundary[0].X)-float64(mx)*0.25,
 				float64(s.Boundary[0].Y)-float64(ly)+float64(uy-ly)*0.5,
 			) + math.Pi*(135.0/180.0)
-			return []int{
-				int(float64(mx)*0.25 - math.Cos(tilt)*upLen),
-				int(float64(ly) + float64(uy-ly)*0.5 - math.Sin(tilt)*upLen),
+			return []cv.Point{
+				cv.Point{X: int(float64(mx) * 0.25), Y: int(float64(ly) + float64(uy-ly)*0.5)},
+				cv.Point{X: int(float64(mx)*0.25 - math.Cos(tilt)*upLen), Y: int(float64(ly) + float64(uy-ly)*0.5 - math.Sin(tilt)*upLen)},
 			}, nil
 		}
 	}

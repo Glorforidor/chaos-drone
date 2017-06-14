@@ -21,7 +21,7 @@ import (
 const (
 	moveSpeed   = 0.025
 	rotateSpeed = 0.005
-	detectDelay = 3
+	detectDelay = 2.5
 )
 
 var (
@@ -48,7 +48,7 @@ func main() {
 
 	// killThisProgram AwesomeAs' killing machine!!!... will stop the program;)
 	killThisProgram := false // Turn on to make the drone land
-	onlyCameraFeed := true   // Turn on to prevent flying, so we can collect data.
+	onlyCameraFeed := false  // Turn on to prevent flying, so we can collect data.
 
 	//ringBuffer := [4]cv.Rect{}
 
@@ -122,7 +122,7 @@ func main() {
 		flyingFunc := func(data interface{}) {
 			if !onlyCameraFeed && !killThisProgram {
 				gobot.After(1*time.Second, func() { drone.Up(0.9) })
-				gobot.After(detectDelay*time.Second, func() {
+				gobot.After(detectDelay*100.0*time.Millisecond, func() {
 					errs := audioControl[rand.Intn(3)].Play()
 					for _, err := range errs {
 						fmt.Printf("An error occoured with audio: %v\n", err)
@@ -133,14 +133,14 @@ func main() {
 				drone.Land()
 			}
 			if onlyCameraFeed {
-				gobot.After(detectDelay*time.Second, func() {
+				gobot.After(detectDelay*100.0*time.Millisecond, func() {
 					errs := audioControl[rand.Intn(3)].Play()
 					for _, err := range errs {
 						fmt.Printf("An error occoured with audio: %v\n", err)
 					}
 				})
 			}
-			gobot.After(detectDelay*time.Second, func() {
+			gobot.After(detectDelay*100.0*time.Millisecond, func() {
 				log.Println("Detect enabled.")
 				detect = true
 
@@ -159,7 +159,7 @@ func main() {
 				// qrPoint holds the x and y coordinates of the position over
 				// the barcode. These coordinates should be the place where the
 				// drone fly through.
-				var qrPoint cv.Point
+				var qrPoints []cv.Point
 				// qrPointSet is to determine if a set has been found.
 				var qrPointSet bool
 				gobot.Every(300*time.Millisecond, func() {
@@ -170,20 +170,20 @@ func main() {
 					img := image.Clone()
 					defer img.Release()
 					qrPointSet = false
-					ellipsePoint, err := barcode.GetEllipseOverQR(img, "P.04")
+					qrPointsTmp, err := barcode.GetEllipseOverQR(img, "P.04")
 					//qrText, qrErr := barcode.QRScan(i2)
 					if err != nil {
 						fmt.Printf("An error occoured with QR scanning: %v\n", err)
-					} else if ellipsePoint != nil {
-						fmt.Printf("QR code found, position: %d, %d\n", ellipsePoint[0], ellipsePoint[1])
-						qrPoint = cv.Point{X: ellipsePoint[0], Y: ellipsePoint[1]}
-						navigation.IsLocked = true
+					} else if qrPointsTmp != nil {
+						fmt.Printf("QR code found, position: %d, %d\n", qrPointsTmp[0].X, qrPointsTmp[0].Y)
+						//navigation.IsLocked = true
 						// drone.Up(0.01)
-						time.Sleep(500 * time.Millisecond)
+						//time.Sleep(500 * time.Millisecond)
 						// drone.Forward(0.05)
-						time.Sleep(2 * time.Second)
+						//time.Sleep(2 * time.Second)
 						// drone.Hover()
-						navigation.IsLocked = false
+						//navigation.IsLocked = false
+						qrPoints = qrPointsTmp
 						qrPointSet = true
 						//cv.Circle(i2, cv.Point{X: ellipsePoint[0], Y: ellipsePoint[1]}, 8, cv.NewScalar(0, 0, 255, 0), 4, 8, 0)
 					} else {
@@ -202,8 +202,8 @@ func main() {
 
 					if qrPointSet {
 						// draw red circle where the drone should fly through.
-						cv.Circle(img, cv.Point{X: 200, Y: 200}, 8, cv.NewScalar(0, 255, 0, 0), 4, 8, 0)
-						cv.Circle(img, qrPoint, 8, cv.NewScalar(0, 0, 255, 0), 4, 8, 0)
+						cv.Circle(img, qrPoints[0], 8, cv.NewScalar(0, 255, 0, 0), 4, 8, 0)
+						cv.Circle(img, qrPoints[1], 8, cv.NewScalar(0, 0, 255, 0), 4, 8, 0)
 					}
 
 					// appendToRingBuffer(rect)
@@ -232,15 +232,10 @@ func main() {
 					log.Println("Center of the ring:", center)
 					dp := navigation.Placement(cx, cy, center.X, center.Y)
 					log.Println("Drones placement of the ring:", dp)
-					cp := navigation.Placement(cx, cy, qrPoint.X, qrPoint.Y)
-					log.Println("QR placement of the ring:", cp)
-
-					if !onlyCameraFeed {
-						if onTarget := navigation.Move(drone, dp); onTarget {
-							if onTarget := navigation.Move(drone, cp); onTarget {
-								navigation.FlyThroughRing(drone, 200)
-							}
-						}
+					var cp int
+					if qrPointSet {
+						cp = navigation.Placement(cx, cy, qrPoints[0].X, qrPoints[0].Y)
+						log.Println("QR placement of the ring:", cp)
 					}
 
 					// construct a rectangle from the ellipse data.
@@ -255,6 +250,19 @@ func main() {
 
 					// show the image on screen.
 					window.ShowImage(img)
+
+					if !onlyCameraFeed {
+						if qrPointSet {
+							if onTarget := navigation.Move(drone, cp); onTarget {
+								navigation.FlyThroughRing(drone, 200, qrPoints[0].X-cx)
+							}
+						} else {
+							if onTarget := navigation.Move(drone, dp); onTarget {
+								navigation.FlyThroughRing(drone, 200, center.X-cx)
+							}
+						}
+					}
+
 					// barcodeIndex++
 					// if barcodeIndex > 6 {
 					// drone.Land()

@@ -114,24 +114,41 @@ func Placement(x, y, rx, ry int) int {
 const flyTime = 10
 
 // FlyThroughRing is a command to make the drone lock on and fly straight for one second.
-func FlyThroughRing(drone *ardrone.Driver, size int) {
-	if !IsLocked {
-		log.Println("I am flying bitches!")
-		IsLocked = true
-		drone.Forward(0.05)
-		i := flyTime - math.Log10(float64(size))
-		time.Sleep(time.Duration(i) * time.Second)
-		drone.Hover()
+func FlyThroughRing(drone *ardrone.Driver, size int, xdiff int) {
+	//if !IsLocked {
+	log.Println("I am flying bitches!")
+	IsLocked = true
+	drone.Hover()
+	time.Sleep(500 * time.Millisecond)
+	if xdiff < -50 {
+		drone.Right(0.05)
 		time.Sleep(200 * time.Millisecond)
-		drone.Land()
-		IsLocked = false
-		log.Println("Im done yay!")
 	}
+	if xdiff > 50 {
+		drone.Left(0.05)
+		time.Sleep(200 * time.Millisecond)
+	}
+	drone.Up(0.125)
+	time.Sleep(550 * time.Millisecond)
+	drone.Hover()
+	time.Sleep(2000 * time.Millisecond)
+	drone.Forward(0.025)
+	i := flyTime - math.Log10(float64(size))
+	if i < 0.1 {
+		i = 0.1
+	}
+	time.Sleep(time.Duration(i) * time.Second)
+	drone.Hover()
+	time.Sleep(200 * time.Millisecond)
+	drone.Land()
+	IsLocked = false
+	log.Println("Im done yay!")
+	//}
 }
 
 const (
 	speed     = 0.025
-	sleepTime = 150
+	sleepTime = 50
 )
 
 // Move moves in the opposite direction of the drone placement.
@@ -162,6 +179,7 @@ func Move(drone *ardrone.Driver, placement int) bool {
 			log.Println("Done left")
 		case OnTarget: // The drone is in the center.
 			log.Println("OnTarget")
+			log.Println("Unlocking")
 			IsLocked = false
 			return true
 		}
