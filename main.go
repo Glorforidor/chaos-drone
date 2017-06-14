@@ -21,7 +21,7 @@ import (
 const (
 	moveSpeed   = 0.025
 	rotateSpeed = 0.005
-	detectDelay = 2.5
+	detectDelay = 2
 )
 
 var (
@@ -121,13 +121,17 @@ func main() {
 		})
 		flyingFunc := func(data interface{}) {
 			if !onlyCameraFeed && !killThisProgram {
-				gobot.After(1*time.Second, func() { drone.Up(0.9) })
+				gobot.After(1*time.Second, func() {
+					drone.Up(0.05)
+					time.Sleep(2500 * time.Millisecond)
+					drone.Hover()
+				})
 				gobot.After(detectDelay*100.0*time.Millisecond, func() {
+					drone.Hover()
 					errs := audioControl[rand.Intn(3)].Play()
 					for _, err := range errs {
 						fmt.Printf("An error occoured with audio: %v\n", err)
 					}
-					drone.Hover()
 				})
 			} else {
 				drone.Land()
@@ -170,7 +174,7 @@ func main() {
 					img := image.Clone()
 					defer img.Release()
 					qrPointSet = false
-					qrPointsTmp, err := barcode.GetEllipseOverQR(img, "P.04")
+					qrPointsTmp, err := barcode.GetEllipseOverQR(img, "P.05")
 					//qrText, qrErr := barcode.QRScan(i2)
 					if err != nil {
 						fmt.Printf("An error occoured with QR scanning: %v\n", err)

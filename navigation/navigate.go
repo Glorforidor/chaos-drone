@@ -122,14 +122,14 @@ func FlyThroughRing(drone *ardrone.Driver, size int, xdiff int) {
 	time.Sleep(500 * time.Millisecond)
 	if xdiff < -50 {
 		drone.Right(0.05)
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(400 * time.Millisecond)
 	}
 	if xdiff > 50 {
 		drone.Left(0.05)
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(400 * time.Millisecond)
 	}
-	drone.Up(0.125)
-	time.Sleep(550 * time.Millisecond)
+	drone.Up(0.05)
+	time.Sleep(700 * time.Millisecond)
 	drone.Hover()
 	time.Sleep(2000 * time.Millisecond)
 	drone.Forward(0.025)
@@ -139,7 +139,7 @@ func FlyThroughRing(drone *ardrone.Driver, size int, xdiff int) {
 	}
 	time.Sleep(time.Duration(i) * time.Second)
 	drone.Hover()
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(2000 * time.Millisecond)
 	drone.Land()
 	IsLocked = false
 	log.Println("Im done yay!")
@@ -169,12 +169,16 @@ func Move(drone *ardrone.Driver, placement int) bool {
 			log.Println("Done up")
 		case Left: // The drone is left of the ring, fly right.
 			log.Println("Going right")
-			drone.Right(speed)
+			drone.Right(speed * 2)
+			time.Sleep(sleepTime * time.Millisecond)
+			drone.Clockwise(speed)
 			time.Sleep(sleepTime * time.Millisecond)
 			log.Println("Done right")
 		case Right: // The drone is right of the ring, fly left.
 			log.Println("Going left")
-			drone.Left(speed)
+			drone.Left(speed * 2)
+			time.Sleep(sleepTime * time.Millisecond)
+			drone.CounterClockwise(speed)
 			time.Sleep(sleepTime * time.Millisecond)
 			log.Println("Done left")
 		case OnTarget: // The drone is in the center.
