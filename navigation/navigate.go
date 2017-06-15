@@ -2,10 +2,12 @@ package navigation
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"math"
 	"time"
 
+	"gobot.io/x/gobot/platforms/audio"
 	"gobot.io/x/gobot/platforms/parrot/ardrone"
 )
 
@@ -99,14 +101,14 @@ func Placement(x, y, rx, ry int) int {
 
 	placement := OnTarget
 	switch {
+	case y+20 < ry:
+		placement = Up
+	case y-20 > ry:
+		placement = Down
 	case x < rx:
 		placement = Left
 	case x > rx:
 		placement = Right
-	case y < ry:
-		placement = Up
-	case y > ry:
-		placement = Down
 	}
 	return placement
 }
@@ -114,22 +116,32 @@ func Placement(x, y, rx, ry int) int {
 const flyTime = 10
 
 // FlyThroughRing is a command to make the drone lock on and fly straight for one second.
-func FlyThroughRing(drone *ardrone.Driver, size int, xdiff int) {
+func FlyThroughRing(drone *ardrone.Driver, audioPlayer audio.Driver, size int, xdiff int, ydiff int) {
 	//if !IsLocked {
 	log.Println("I am flying bitches!")
 	IsLocked = true
 	drone.Hover()
 	time.Sleep(500 * time.Millisecond)
+	drone.Clockwise(0.05)
+	time.Sleep(500 * time.Millisecond)
 	if xdiff < -50 {
+		drone.Clockwise(0.025)
+		time.Sleep(400 * time.Millisecond)
 		drone.Right(0.05)
 		time.Sleep(400 * time.Millisecond)
-	}
-	if xdiff > 50 {
+	} else if xdiff > 50 {
+		drone.CounterClockwise(0.025)
+		time.Sleep(400 * time.Millisecond)
 		drone.Left(0.05)
 		time.Sleep(400 * time.Millisecond)
 	}
-	drone.Up(0.05)
-	time.Sleep(700 * time.Millisecond)
+	if ydiff < -50 {
+		drone.Up(0.05)
+		time.Sleep(400 * time.Millisecond)
+	} else if ydiff > 50 {
+		drone.Down(0.05)
+		time.Sleep(400 * time.Millisecond)
+	}
 	drone.Hover()
 	time.Sleep(2000 * time.Millisecond)
 	drone.Forward(0.025)
@@ -137,7 +149,11 @@ func FlyThroughRing(drone *ardrone.Driver, size int, xdiff int) {
 	if i < 0.1 {
 		i = 0.1
 	}
-	time.Sleep(time.Duration(i) * time.Second)
+	time.Sleep(time.Duration(i*0.5) * time.Second)
+	errs := audioPlayer.Play()
+	for _, err := range errs {
+		fmt.Printf("An error occoured with audio: %v\n", err)
+	}
 	drone.Hover()
 	time.Sleep(2000 * time.Millisecond)
 	drone.Land()
@@ -178,7 +194,7 @@ func Move(drone *ardrone.Driver, placement int) bool {
 			log.Println("Going left")
 			drone.Left(speed * 2)
 			time.Sleep(sleepTime * time.Millisecond)
-			drone.CounterClockwise(speed)
+			drone.CounterClockwise(speed * 0.5)
 			time.Sleep(sleepTime * time.Millisecond)
 			log.Println("Done left")
 		case OnTarget: // The drone is in the center.

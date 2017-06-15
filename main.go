@@ -46,6 +46,8 @@ func main() {
 	goOOR := oor.New()
 	defer goOOR.Free()
 
+	rand.Seed(int64(time.Now().Nanosecond()))
+
 	// killThisProgram AwesomeAs' killing machine!!!... will stop the program;)
 	killThisProgram := false // Turn on to make the drone land
 	onlyCameraFeed := false  // Turn on to prevent flying, so we can collect data.
@@ -95,7 +97,7 @@ func main() {
 			drone.Land()
 			ardroneAdaptor.Finalize()
 			audioDriver.Finalize()
-			camera.Connection().Finalize()
+			//camera.Connection().Finalize()
 			return
 		} else if !onlyCameraFeed {
 			drone.TakeOff()
@@ -128,10 +130,6 @@ func main() {
 				})
 				gobot.After(detectDelay*100.0*time.Millisecond, func() {
 					drone.Hover()
-					errs := audioControl[rand.Intn(3)].Play()
-					for _, err := range errs {
-						fmt.Printf("An error occoured with audio: %v\n", err)
-					}
 				})
 			} else {
 				drone.Land()
@@ -258,11 +256,11 @@ func main() {
 					if !onlyCameraFeed {
 						if qrPointSet {
 							if onTarget := navigation.Move(drone, cp); onTarget {
-								navigation.FlyThroughRing(drone, 200, qrPoints[0].X-cx)
+								navigation.FlyThroughRing(drone, audioControl[rand.Intn(3)], 200, qrPoints[0].X-cx, qrPoints[0].Y-cy)
 							}
 						} else {
 							if onTarget := navigation.Move(drone, dp); onTarget {
-								navigation.FlyThroughRing(drone, 200, center.X-cx)
+								navigation.FlyThroughRing(drone, audioControl[rand.Intn(3)], 200, center.X-cx, center.Y-cy)
 							}
 						}
 					}
@@ -306,7 +304,9 @@ func main() {
 		work,
 	)
 
-	robot.Start()
+	if !killThisProgram {
+		robot.Start()
+	}
 }
 
 /*opencv.DrawRectangles(
