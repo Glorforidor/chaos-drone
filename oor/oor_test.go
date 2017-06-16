@@ -9,6 +9,7 @@ import (
 )
 
 func TestDetectEllipses(t *testing.T) {
+	// TODO: Test not taking account for new changes!
 	tests := []struct {
 		image  *opencv.Mat
 		length int

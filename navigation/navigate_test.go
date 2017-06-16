@@ -1,8 +1,6 @@
 package navigation
 
 import (
-	"fmt"
-	"math"
 	"testing"
 )
 
@@ -27,53 +25,8 @@ func TestCenter(t *testing.T) {
 
 }
 
-func TestRatio(t *testing.T) {
-	tests := []struct {
-		x, y int
-		want float64
-	}{
-		{1, 2, 0.5},
-		{2, 1, 2},
-		{1920, 1080, 1.7777777777777777},
-		{1, 0, 0.0},
-	}
-
-	for _, test := range tests {
-		got, _ := Ratio(test.x, test.y)
-		if got != test.want {
-			t.Errorf("got: %v, want: %v", got, test.want)
-		}
-	}
-}
-
-func TestDirection(t *testing.T) {
-	tests := []struct {
-		ratio         float64
-		wantDirection int
-		wantBadness   float64
-	}{
-		{1920.0 / 1080.0, Vertical, math.Abs(math.Log10(1920.0 / 1080.0))},
-		{1080.0 / 1920.0, Horizontal, math.Abs(math.Log10(1080.0 / 1920.0))},
-		{1.0 / 1920.0, Horizontal, 1},
-		{1920.0 / 1.0, Vertical, 1},
-		{1920.0 / 1840.0, Stay, 0.0},
-		{1920.0 / 2000.0, Stay, 0.0},
-	}
-
-	for i, test := range tests {
-		t.Run(fmt.Sprintf("test:%v", i), func(t *testing.T) {
-			d, b := Direction(test.ratio)
-			if d != test.wantDirection {
-				t.Fatalf("Direction failed: got: %v, want: %v", d, test.wantDirection)
-			}
-			if b != test.wantBadness {
-				t.Errorf("Badness failed: got: %v, want: %v", b, test.wantBadness)
-			}
-		})
-	}
-}
-
 func TestPlacement(t *testing.T) {
+	// TODO: Take account for threshold.
 	tests := []struct {
 		x, y, rx, ry int
 		want         int

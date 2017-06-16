@@ -18,11 +18,7 @@ import (
 	"github.com/Glorforidor/chaos-drone/oor"
 )
 
-const (
-	moveSpeed   = 0.025
-	rotateSpeed = 0.005
-	detectDelay = 2
-)
+const detectDelay = 2
 
 var (
 	barcodeIndex = 0
@@ -51,33 +47,6 @@ func main() {
 	// killThisProgram AwesomeAs' killing machine!!!... will stop the program;)
 	killThisProgram := false // Turn on to make the drone land
 	onlyCameraFeed := false  // Turn on to prevent flying, so we can collect data.
-
-	//ringBuffer := [4]cv.Rect{}
-
-	// appendToRingBuffer appends a ring image to the ringBuffer. Every append
-	// shuffle the array left removing the first.
-	/*appendToRingBuffer := func(bounds cv.Rect) {
-		for i := 1; i < 4; i++ {
-			ringBuffer[i-1] = ringBuffer[i]
-		}
-		ringBuffer[3] = bounds
-	}*/
-
-	/*getMedianOfRingBuffers := func() [4]int {
-		sum := [4]int{}
-		for i := 0; i < 4; i++ {
-			if ringBuffer[i].Width() > sum[2] && ringBuffer[i].Height() > sum[3] {
-				sum[0] = ringBuffer[i].X()
-				sum[1] = ringBuffer[i].Y()
-				sum[2] = ringBuffer[i].Width()
-				sum[3] = ringBuffer[i].Height()
-			}
-		}
-		/ *for i := 0; i < 4; i++ {
-			sum[i] = int(float64(sum[i]) / 5.0)
-		}* /
-		return sum
-	}*/
 
 	if killThisProgram {
 		fmt.Println("KILLTHISPROGRAM IS ACTIVE! SHUTTING DOWN DRONE!")
@@ -173,7 +142,6 @@ func main() {
 					defer img.Release()
 					qrPointSet = false
 					qrPointsTmp, err := barcode.GetEllipseOverQR(img, "P.05")
-					//qrText, qrErr := barcode.QRScan(i2)
 					if err != nil {
 						fmt.Printf("An error occoured with QR scanning: %v\n", err)
 					} else if qrPointsTmp != nil {
@@ -208,7 +176,6 @@ func main() {
 						cv.Circle(img, qrPoints[1], 8, cv.NewScalar(0, 0, 255, 0), 4, 8, 0)
 					}
 
-					// appendToRingBuffer(rect)
 					// scan the image for ellipse and get information where it
 					// is.
 					ellipseData, err := goOOR.DetectEllipses(img.GetMat())
@@ -224,12 +191,6 @@ func main() {
 					cx := ellipseData[4] // Image center X
 					cy := ellipseData[5] // Image center Y
 
-					// medBounds := getMedianOfRingBuffers()
-					// x = medBounds[0]
-					// y = medBounds[1]
-					// w = medBounds[2]
-					// h = medBounds[3]
-
 					center := navigation.Center(x, y, w, h)
 					log.Println("Center of the ring:", center)
 					dp := navigation.Placement(cx, cy, center.X, center.Y)
@@ -242,10 +203,6 @@ func main() {
 
 					// construct a rectangle from the ellipse data.
 					rect := cv.NewRect(x, y, w, h)
-
-					//appendToRingBuffer(rect)
-
-					//fmt.Printf("Rectangle: (x = %d, y = %d), w = %d, h = %d\n", x, y, w, h)
 
 					// draw the rectangle on the image.
 					opencv.DrawRectangles(img, []*cv.Rect{&rect}, 0, 255, 0, 5)
@@ -308,58 +265,3 @@ func main() {
 		robot.Start()
 	}
 }
-
-/*opencv.DrawRectangles(
-i,
-[]*cv.Rect{cv.Rect(
-	i,
-	lt,
-	br,
-	cv.NewScalar(0, 0, 0, 0),
-	1,
-	1,
-	0)},
-0, 255, 0, 5)*/
-
-/*faces := opencv.DetectFaces(cascade, i)
-biggest := 0
-var face *cv.Rect
-for _, f := range faces {
-	if f.Width() > biggest {
-		biggest = f.Width()
-		face = f
-	}
-}
-if face != nil {
-	opencv.DrawRectangles(i, []*cv.Rect{face}, 0, 255, 0, 5)
-	hystX := 0.2
-	hystY := 0.2
-	centerX := float64(image.Width()) * 0.5
-	centerY := float64(image.Height()) * 0.5
-	turnX := -(float64(face.X()) - centerX) / centerX
-	turnY := -(float64(face.Y()) - centerY) / centerY
-	//Find object horizontal
-	if turnX < -hystX {
-		fmt.Println("turning ClockWise:", turnX)
-		//drone.Clockwise(math.Abs((turn + 0.2) * 0.2))
-		drone.Clockwise(0.01)
-	} else if turnX > hystX {
-		fmt.Println("turning CounterClockWise:", turnX)
-		//drone.CounterClockwise(math.Abs((turn - 0.2) * 0.2))
-		drone.CounterClockwise(0.01)
-	} else if turnY > hystY { //Find object vertital
-		fmt.Println("turning Up:", turnY)
-		//drone.Clockwise(math.Abs((turn + 0.2) * 0.2))
-		drone.Up(0.01)
-	} else if turnY < -hystY {
-		fmt.Println("turning Down:", turnY)
-		//drone.CounterClockwise(math.Abs((turn - 0.2) * 0.2))
-		drone.Down(0.01)
-	} else { //if turnX < hystX && turnX > -hystX && turnY < hystY && turnY > -hystY {
-
-		fmt.Println("Forward:")
-		hover = false
-		drone.Forward(0.1)
-		gobot.After(1*time.Second, func() { hover = true })
-	}
-}*/
